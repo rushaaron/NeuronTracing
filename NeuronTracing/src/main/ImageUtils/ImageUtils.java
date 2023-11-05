@@ -2,7 +2,6 @@ package main.ImageUtils;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.util.ArrayList;
 
 public class ImageUtils {
 
@@ -17,6 +16,7 @@ public class ImageUtils {
         return red;
     }
 
+    // Checks if an image contains a pink pixel
     public static boolean containsPink(BufferedImage image) {
         for (int y = 0; y < image.getHeight(); y++){
             for (int x = 0; x < image.getWidth(); x++){
@@ -28,6 +28,7 @@ public class ImageUtils {
         return false;
     }
 
+    // Checks if a rgb value is a shade of pink
     public static boolean isPink(int rgb) {
         Color c = new Color(rgb,true);
         int red = c.getRed();
@@ -39,8 +40,7 @@ public class ImageUtils {
         return false;
     }
 
-
-    //setting a file as white or to mimic the one passed
+    // Setting a file as white or to mimic the one passed
     public static void setImageToWhite(BufferedImage img, BufferedImage input, boolean printWhite) {
         Color white = new Color(255,255,255);
         for (int y = 0; y < img.getHeight(); y++) {
@@ -52,8 +52,4 @@ public class ImageUtils {
             }
         }
     }
-
-
-
-
 }

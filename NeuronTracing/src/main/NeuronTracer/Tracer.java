@@ -8,16 +8,19 @@ import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 
 public class Tracer {
-    private static int red;
-    private static int xOffsetFromEye;
-    private static int yOffsetFromEye;
-    private static int startOfBranchRed;
-    private static int sideToRemove;
-    private static BufferedImage image;
-    private static BufferedImage output;
-    private static BufferedImage whiteOutput;
-    private static BufferedImage blackOutput;
-    private final ArrayList<Pair> directions = new ArrayList<Pair>();
+    private int red;
+    private int xOffsetFromEye;
+    private int yOffsetFromEye;
+    private int startOfBranchRed;
+    private int sideToRemove;
+    private BufferedImage image;
+    private BufferedImage output;
+    private BufferedImage whiteOutput;
+    private BufferedImage blackOutput;
+    private final ArrayList<Pair> directions = new ArrayList<>();
+    private final int maxPixelSize = 100000;
+    private final Color blue = new Color(50,5,200);
+
 
 
     public Tracer(int red, int xOffsetFromEye, int yOffsetFromEye, int startOfBranchRed, int sideToRemove, BufferedImage image, BufferedImage output, BufferedImage whiteOutput, BufferedImage blackOutput) {
@@ -45,27 +48,23 @@ public class Tracer {
         directions.add(NW); directions.add(N); directions.add(NE); directions.add(E); directions.add(SE); directions.add(S); directions.add(SW); directions.add(W); directions.add(NW); directions.add(N);
     }
 
+    // Main method that'll trace and create the branches off the passed in image
     public ArrayList<Branch> createBranches() {
-        //--------------------------------------------------------------------------------------Start of finding the eye and branches
-        //used to sort how the starting branches
+        // Used to sort how the starting branches
         ArrayList<Trips> tempPoints = new ArrayList<Trips>();
         ArrayList<ArrayList<Trips>> listOfStartingPoints = new ArrayList<ArrayList<Trips>>();
         ArrayList<Trips> startingBranchPoints = new ArrayList<Trips>();
 
-        //used to hold the full starting points for validation against the offset branches at the beginning
+        // Used to hold the full starting points for validation against the offset branches at the beginning
         ArrayList<Trips> knownPoints = new ArrayList<>();
 
-        //holds all the branches
+        // Holds all the branches
         ArrayList<Branch> branches = new ArrayList<>();
 
-        int count = 0; int x = 0; int y = 0;
-        // Looking to see if the image has pink in it. If it does, we're assuming the user has highlighted the cell body with pink
-        final boolean containsPink = ImageUtils.containsPink(image);
+        int x = 0; int y = 0;
 
         ArrayList<Branch> startingBranches;
-        //testing with (251,32,255) pink value
-        //gets starting branches from the eye // offset when searching from the eye
-        if (containsPink)
+        if (ImageUtils.containsPink(image))
             startingBranches = getStartingBranchesPink(directions, knownPoints, image, output, xOffsetFromEye, yOffsetFromEye, startOfBranchRed, x, y);
         else
             startingBranches = getStartingBranches(directions, knownPoints, image, output, xOffsetFromEye, yOffsetFromEye, startOfBranchRed);
@@ -113,7 +112,7 @@ public class Tracer {
                     for (Trips point : startingBranchPoints) {
                         for (int d = 1; d <= 8; d++) {
                             tempPoints = findBranches(directions, knownPoints, point.x, point.y, d,image, red, 0);
-                            if (tempPoints.size() > 20 && validateSeperateBranch(knownPoints, tempPoints)) {
+                            if (tempPoints.size() > 20 && validateSeparateBranch(knownPoints, tempPoints)) {
                                 listOfStartingPoints.add(tempPoints);
                             }
                         }
@@ -142,14 +141,13 @@ public class Tracer {
         ArrayList<Branch> nextRoundOfBranchesToBreak = new ArrayList<Branch>();
 
         branchesToBreak.addAll(branches);
-        count = 0;
 
         do {
             //finding new branches from the existing ones
             while (!branchesToBreak.isEmpty()) {
                 for (Trips s : branchesToBreak.get(0).getBreakPoints()) {
                     Branch tempB = new Branch(findBranches(directions, knownPoints, s.x, s.y, s.d,image, red, 0));
-                    if (tempB.getPoints().size() > 5 && validateSeperateBranch(branchesToBreak.get(0).getBreakPoints(),tempB.getPoints())){
+                    if (tempB.getPoints().size() > 5 && validateSeparateBranch(branchesToBreak.get(0).getBreakPoints(),tempB.getPoints())){
                         nextRoundOfBranchesToBreak.add(tempB); //temp array to hold set of branches for the next round
                         knownPoints.addAll(tempB.getPoints());
                     }
@@ -163,36 +161,34 @@ public class Tracer {
                 for (Trips point : b.getPoints()) {
                     for (int d = 1; d <= 8; d++) {
                         tempPoints = findBranches(directions, knownPoints, point.x, point.y, d,image, red, 0);
-                        if (tempPoints.size() > 20 && validateSeperateBranch(knownPoints, tempPoints)) {
+                        if (tempPoints.size() > 20 && validateSeparateBranch(knownPoints, tempPoints)) {
                             listOfStartingPoints.add(tempPoints);
                         }
                     }
                 }
-                //removing overlapping offset branches
+                // Removing overlapping offset branches
                 listOfStartingPoints = removeRepeatStartingPoints(listOfStartingPoints, image);
 
-                //populating list of main.NeuronTracer.Trips for starting points for the offsets
+                // Populating list of main.NeuronTracer.Trips for starting points for the offsets
                 for (ArrayList<Trips> list : listOfStartingPoints) {
                     b.addBreakPoint(list.get(0));
                 }
 
-                //breaking up main branch based off starting points found from it
+                // Breaking up main branch based off starting points found from it
                 branches.addAll(b.breakUpBranch());
             }
 
             branchesToBreak.addAll(nextRoundOfBranchesToBreak);
             nextRoundOfBranchesToBreak.clear();
-            count++;
-
         } while (!branchesToBreak.isEmpty());
 
-        //removing tiny branches that somehow got in there
+        // Removing tiny branches that somehow got in there
         removeTinyBranches(branches);
 
-        //combining split branches
+        // Combining split branches
         mergeSplitBranches(branches);
 
-        //just removing overlapping points
+        // Removing overlapping points
         removeOverlappingPoints(branches);
 
 
@@ -221,15 +217,12 @@ public class Tracer {
     }
 
 
-    //get main branches from the starting point
-    static ArrayList<Branch> getStartingBranchesPink(ArrayList<Pair> directions, ArrayList<Trips> eyeOutline, BufferedImage img, BufferedImage output, int xOffset, int yOffset, int red, int x, int y) {
+    // If the image has pink on it, then it should have a pink eye. Gets main branches from the pink eye
+    private ArrayList<Branch> getStartingBranchesPink(ArrayList<Pair> directions, ArrayList<Trips> eyeOutline, BufferedImage img, BufferedImage output, int xOffset, int yOffset, int red, int x, int y) {
+        // Gets an array of the outline of the eye
+        final ArrayList<Pair> outline = getPinkOutline(directions, x, y, img, output);
 
-        //-------------------------getting an array of the outline of the eye
-        ArrayList<Pair> outline = getPinkOutline(directions, x, y, img, output);
-
-        //-------------------------TEST: printing out the eye
-        Color blue = new Color(50,5,200);
-        Pair minX = new Pair(100000,0); Pair maxX = new Pair(0,0); Pair minY = new Pair(0,100000); Pair maxY = new Pair(0,0);
+        Pair minX = new Pair(maxPixelSize,0); Pair maxX = new Pair(0,0); Pair minY = new Pair(0,maxPixelSize); Pair maxY = new Pair(0,0);
         for (Pair<Integer,Integer> i : outline) {
             if (i.x < minX.x)
                 minX = new Pair(i.x,i.y);
@@ -242,20 +235,74 @@ public class Tracer {
             output.setRGB(i.x, i.y, blue.getRGB());
         }
 
-        //passing back the know points of the eye
+        // Passing back the know points of the eye
         for (Pair p : outline)
             eyeOutline.add(new Trips(p.x,p.y,0));
-
-        //-------------------------getting starting branches
 
         return getBranchesFromCenter(directions, outline, minX, maxX, minY, maxY, img, output, xOffset, yOffset, red);
     }
 
+    // Gets the outline of the pink eye
+    private ArrayList<Pair> getPinkOutline(ArrayList<Pair> directions, int startX, int startY, BufferedImage img, BufferedImage output) {
+        ArrayList<Pair> outline = new ArrayList<Pair>();
+        boolean foundMin;
+        Pair prevMin = new Pair(-1,-1);
+        Pair prevMax = new Pair(-1,-1);
+        Pair startMin = new Pair(-1,-1); //recording the starting pair of the min value
 
-    //get main branches from the starting point
-    static ArrayList<Branch> getStartingBranches(ArrayList<Pair> directions, ArrayList<Trips> eyeOutline, BufferedImage img, BufferedImage output, int xOffset, int yOffset, int red) {
+        for (int y = startY; y < img.getHeight() -1; y++) {
+            foundMin = false;
+
+            for (int x = 0; x < img.getWidth()-1; x++) {
+                if (foundMin) { //if we've already found the min value the left boundary, checking for right side
+                    if (!ImageUtils.isPink(img.getRGB(x, y))){
+                        outline.add(new Pair(x-1,y));
+                        if (prevMax.x != -1)
+                            outline.addAll(fillInPinkOutline(x-1, y, prevMax));
+                        else
+                            outline.addAll(fillInPinkOutline(x-1, y, startMin));
+                        prevMax = new Pair(x-1,y);
+                        break;
+                    }
+                } else { //if we haven't found the min value the left boundary, than first pink value is the min
+                    if (ImageUtils.isPink(img.getRGB(x, y))){
+                        foundMin = true;
+                        outline.add(new Pair(x,y));
+                        if (prevMin.x != -1)
+                            outline.addAll(fillInPinkOutline(x, y, prevMin));
+                        else
+                            startMin = new Pair(x,y);
+                        prevMin = new Pair(x,y);
+                        //break;
+                    }
+                }
+            }
+            if (!foundMin)
+                break;
+        }
+        outline.addAll(fillInPinkOutline(prevMin.x, prevMin.y, prevMax));
+
+        return outline;
+    }
+
+    //fills in the points between 2 neighboring y values
+    private ArrayList<Pair> fillInPinkOutline(int x, int y, Pair prev) {
+        ArrayList<Pair> outline = new ArrayList<Pair>();
+        while (x != prev.x) {
+            if (x > prev.x)
+                x--;
+            else
+                x++;
+            outline.add(new Pair(x, y));
+        }
+        return outline;
+    }
+
+    // Get main branches from the starting point when there's no pink outline
+    private ArrayList<Branch> getStartingBranches(ArrayList<Pair> directions, ArrayList<Trips> eyeOutline, BufferedImage img, BufferedImage output, int xOffset, int yOffset, int red) {
         int count = 0; int x = 0; int y = 0;
-        //-------------------------getting starting point
+
+        // Getting starting point
         outerloop:
         for (y = 0; y < img.getHeight(); y++){
             for (x = 0; x < img.getWidth(); x++){
@@ -271,7 +318,9 @@ public class Tracer {
             }
         }
 
-        //-------------------------finding the min/max of (x,y) for the center
+        //
+        // Finding the min/max of (x,y) for the center
+        //
         ArrayList<Pair> minMaxXs = findStartingXs(x, y, directions, true, img);
         ArrayList<Pair> minXs = findStartingXs(minMaxXs.get(0).x, minMaxXs.get(0).y, directions, false, img);
         ArrayList<Pair> maxXs = findStartingXs(minMaxXs.get(1).x, minMaxXs.get(1).y, directions, true, img);
@@ -284,14 +333,18 @@ public class Tracer {
         if (minXs.get(1).x > maxXs.get(1).x)
             maxX = new Pair<Integer,Integer>(minXs.get(1).x,minXs.get(1).y);
 
-        //-------------------------getting an array of the outline of the eye
+        //
+        // Getting an array of the outline of the eye
+        //
         ArrayList<Pair> outline1 = getStartingYs(directions, minX, maxX, true, img, output);
         ArrayList<Pair> outline2 = getStartingYs(directions, minX, maxX, false, img, output);
 
         ArrayList<Pair> outline3 = getStartingYsInverted(directions, minX, maxX, true, img, output);
         ArrayList<Pair> outline4 = getStartingYsInverted(directions, minX, maxX, false, img, output);
 
-        //-------------------------getting max y pairs
+        //
+        // Getting max y pairs
+        //
         Pair<Integer,Integer> minYs = outline1.remove(1);
         outline1.remove(0);
         Pair<Integer,Integer> maxYs = outline2.remove(0);
@@ -305,36 +358,37 @@ public class Tracer {
         if (minYs.y > maxYs.y)
             maxX = new Pair<Integer,Integer>(minYs.x,minYs.y);
 
-        //-------------------------need to get outline points into one arraylist
+        //
+        // Need to get outline points into one arraylist
+        //
         outline1.addAll(outline2);
         outline1.addAll(outline3);
         outline1.addAll(outline4);
 
-        //-------------------------removing duplicates from arraylist
+        //
+        // Removing duplicates from arraylist
+        //
         ArrayList<Pair> outline = new ArrayList<Pair>();
         for (Pair<Integer,Integer> i : outline1)
             if (!outline.contains(i))
                 outline.add(i);
 
-        //-------------------------TEST: printing out the eye
-        Color blue = new Color(50,5,200);
+        // Printing out the eye
         for (Pair<Integer,Integer> i : outline)
             output.setRGB(i.x, i.y, blue.getRGB());
 
-        //passing back the know points of the eye
+        // Passing back the know points of the eye
         for (Pair p : outline)
             eyeOutline.add(new Trips(p.x,p.y,0));
 
-        //-------------------------getting starting branches
+        // Gets the starting branches
         return getBranchesFromCenter(directions, outline, minX, maxX, minY, maxY, img, output, xOffset, yOffset, red);
     }
 
-
-
-    //first will outline a box around the eye based off the offset. While looking at each point, if the point is < shade, adds the points to an array of branches
-    //each branch created will be given a branch number. The branch number increments every time a branch is found and moved on from. This number will be used to remove duplicates
-    public static ArrayList<Branch> getBranchesFromCenter(ArrayList<Pair> directions, ArrayList<Pair> outline, Pair<Integer,Integer> minXs, Pair<Integer,Integer> maxXs, Pair<Integer,Integer> minYs, Pair<Integer,Integer> maxYs, BufferedImage img, BufferedImage output, int xOffset, int yOffset, int red) {
-        Color blue = new Color(50,5,200);
+    // First will outline a box around the eye based off the offset. While looking at each point, if the point is < shade, adds the points to an array of branches
+    // each branch created will be given a branch number. The branch number increments every time a branch is found and moved on from. This number will be used to
+    // remove duplicates
+    private ArrayList<Branch> getBranchesFromCenter(ArrayList<Pair> directions, ArrayList<Pair> outline, Pair<Integer,Integer> minXs, Pair<Integer,Integer> maxXs, Pair<Integer,Integer> minYs, Pair<Integer,Integer> maxYs, BufferedImage img, BufferedImage output, int xOffset, int yOffset, int red) {
         int shade = 240;
         //red was 220
         boolean prev = false; //will be used to indicate if the previous point found a starting branch. If so and current point is true, then we don't want to record that point
@@ -356,7 +410,7 @@ public class Tracer {
         if (maxY >= img.getHeight())
             maxY = img.getHeight()-1;
 
-        //looping through an offset from the min/max x/y values, then search back towards the eye to determine starting branches
+        // Looping through an offset from the min/max x/y values, then search back towards the eye to determine starting branches
         for (int i = minY; i < maxY; i++) { //looping through for the Y values
             output.setRGB(minX, i, blue.getRGB());
             output.setRGB(maxX, i, blue.getRGB());
@@ -488,9 +542,8 @@ public class Tracer {
         return startingBranches;
     }
 
-
     //starts at a point outside the outline and moves towards the outline to see if the branch is a starting branch
-    public static ArrayList<Trips> startOfBranch(ArrayList<Pair> directions, ArrayList<Pair> outline, int x, int y, int d, BufferedImage img, BufferedImage output, int red) {
+    private ArrayList<Trips> startOfBranch(ArrayList<Pair> directions, ArrayList<Pair> outline, int x, int y, int d, BufferedImage img, BufferedImage output, int red) {
         Trips<Integer,Integer,Integer> curPoint = new Trips<Integer,Integer,Integer>(-1,-1,-1);
         //int[] possibleDirs = {d-1,d,d+1};
         int[] possibleDirs = {d-2,d-1,d,d+1,d+2};
@@ -567,17 +620,10 @@ public class Tracer {
         return visited;
     }
 
-    //going to find if there are multiple branches within a starting branch
-    public static ArrayList<Branch> validateStartingBranches(ArrayList<Branch> startingBranches, BufferedImage img) {
-
-        ArrayList<Branch> separatedBranches = new ArrayList<Branch>();
-        boolean dupe = false;
-
+    // Going to find if there are multiple branches within a starting branch
+    private ArrayList<Branch> validateStartingBranches(ArrayList<Branch> startingBranches, BufferedImage img) {
         for (int i = 0; i < startingBranches.size(); i++) {
             Branch outerBranch = startingBranches.get(i);
-            separatedBranches.clear();
-            dupe = false;
-
 
             for (int k = 0; k < startingBranches.size(); k++) {
                 if (k != i) {
@@ -593,7 +639,7 @@ public class Tracer {
                         break;
                     }
 
-                    if (outerBranch.getEndingPoint().equals(cur.getEndingPoint()) && outerBranch.getSide() == cur.getSide() && isStartingBrancheDuplicate(outerBranch, cur, img)) {
+                    if (outerBranch.getEndingPoint().equals(cur.getEndingPoint()) && outerBranch.getSide() == cur.getSide() && isStartingBranchDuplicate(outerBranch, cur, img)) {
                         if (cur.getAveRed(img) < outerBranch.getAveRed(img)) {
                             startingBranches.remove(outerBranch);
                             i--;
@@ -620,8 +666,8 @@ public class Tracer {
     }
 
 
-    //given 2 branches with the same ending point and side, seeing if the starting points are connected by filled in pixels, if so then they're duplicates
-    public static boolean isStartingBrancheDuplicate(Branch b1, Branch b2, BufferedImage img) {
+    // Given 2 branches with the same ending point and side, seeing if the starting points are connected by filled in pixels, if so then they're duplicates
+    private boolean isStartingBranchDuplicate(Branch b1, Branch b2, BufferedImage img) {
         int x = b1.getStartingPoint().x;
         int y = b1.getStartingPoint().y;
         int xs = 0;//used to modify the x and y values
@@ -644,7 +690,7 @@ public class Tracer {
     }
 
     //branch 1 has already been separated, b2 overlaps so have to cut it down
-    public static Branch separateOverlapSecond(Branch b1, Branch b2, Trips p) {
+    private Branch separateOverlapSecond(Branch b1, Branch b2, Trips p) {
         ArrayList<Trips> pointsToRemoveB1 = new ArrayList<Trips>();
         ArrayList<Trips> pointsToRemoveB2 = new ArrayList<Trips>();
 
@@ -671,9 +717,8 @@ public class Tracer {
         return new Branch(pointsToRemoveB2);
     }
 
-
-    //sees if a separate branch is valid or just running along the known branch
-    static boolean validateSeperateBranch(ArrayList<Trips> branch, ArrayList<Trips> offset) {
+    // Sees if a separate branch is valid or just running along the known branch
+    private boolean validateSeparateBranch(ArrayList<Trips> branch, ArrayList<Trips> offset) {
         double aveDistance = 0;
         int count = 0;
 
@@ -689,9 +734,8 @@ public class Tracer {
         return true;
     }
 
-    //removing starting points that are too close to each other
-    static ArrayList<ArrayList<Trips>> removeRepeatStartingPoints(ArrayList<ArrayList<Trips>> startingPoints, BufferedImage img) {
-
+    // Removing starting points that are too close to each other
+    private ArrayList<ArrayList<Trips>> removeRepeatStartingPoints(ArrayList<ArrayList<Trips>> startingPoints, BufferedImage img) {
         for (int i = 0; i < startingPoints.size()-1; i++) {
             for (int k = i+1; k < startingPoints.size(); k++) {
                 if (i != k) {
@@ -716,11 +760,12 @@ public class Tracer {
     }
 
 
-    //getting the direction with the greatest weighted distance / returns next direction and it's distance / branch is an array of points of a known branch, close enough to the branch, will go straight for it
-    static double[] getNextDirection(ArrayList<Pair> directions, int x, int y, int[] d, BufferedImage img, int red) {
+    // Getting the direction with the greatest weighted distance / returns next direction, and it's distance
+    // Branch is an array of points of a known branch, close enough to the branch, will go straight for it
+    private double[] getNextDirection(ArrayList<Pair> directions, int x, int y, int[] d, BufferedImage img, int red) {
         int dMax = -1;
         int countMax = -1;
-        double[] temp = new double[2];
+        double[] temp;
         double minWeight = 10000;
 
         for (int i = 0; i < d.length; i++) {
@@ -734,14 +779,11 @@ public class Tracer {
         return new double[]{dMax, countMax};
     }
 
-    //current function for searching through the image for all the branches // branch will equal null when searching through the image, will != null when searching from an offset
-    static ArrayList<Trips> findBranches(ArrayList<Pair> directions, ArrayList<Trips> branch, int x, int y, int d, BufferedImage img, int red, int offset) {
-
+    // Current function for searching through the image for all the branches
+    // Branch will equal null when searching through the image, will != null when searching from an offset
+    private ArrayList<Trips> findBranches(ArrayList<Pair> directions, ArrayList<Trips> branch, int x, int y, int d, BufferedImage img, int red, int offset) {
         int[] pDirections = branches(d,3);
-        double[] nextD = new double[2];
-        int ogD = d;
-        int ogX = x;
-        int ogY = y;
+        double[] nextD;
 
         Trips<Integer,Integer,Integer> curPoint = new Trips<Integer,Integer,Integer>(x,y,d);
         ArrayList<Trips> points = new ArrayList<Trips>();
@@ -765,7 +807,6 @@ public class Tracer {
 
             nextD = getNextDirection(directions, x, y, pDirections, img, red);
 
-
             //break out of the loop clauses
             if (nextD[1] < 1)
                 break;
@@ -787,8 +828,8 @@ public class Tracer {
         return points;
     }
 
-    //takes a direction and either 3 or 5 for finding relative directions
-    static int[] branches(int d, int size) {
+    // Takes a direction and either 3 or 5 for finding relative directions
+    private int[] branches(int d, int size) {
         int[] b;
         if (size == 3 || size == -2)
             b = new int[3];
@@ -831,21 +872,8 @@ public class Tracer {
         return b;
     }
 
-
-    //searching while the rgb while is > 5
-    static int getInvertCenterDistance(ArrayList<Pair> directions, int x, int y, int d, BufferedImage img) {
-        int count = -1;
-
-        while (x < img.getWidth()-1 && x > 0 && y > 0 && y < img.getHeight()-1 && ImageUtils.getRed(img.getRGB(x, y)) > 5) {
-            x += directions.get(d).x;
-            y += directions.get(d).y;
-            count++;
-        }
-        return count;
-    }
-
     //finding min and max xs with their corresponding y values
-    static ArrayList<Pair> findStartingXs(int x, int y, ArrayList<Pair> directions, boolean left, BufferedImage img) {
+    private ArrayList<Pair> findStartingXs(int x, int y, ArrayList<Pair> directions, boolean left, BufferedImage img) {
         ArrayList<Pair> points = new ArrayList<Pair>();
         Pair<Integer,Integer> minX = new Pair<Integer,Integer>(x,y);
         Pair<Integer,Integer> maxX = new Pair<Integer,Integer>(x,y);
@@ -867,11 +895,11 @@ public class Tracer {
 
             tempX = x - ImageDistanceUtils.getCenterDistance(directions, x, y, 7, img);
             if (tempX < minX.x)
-                minX = new Pair<Integer,Integer>(tempX,y);
+                minX = new Pair<>(tempX,y);
 
             tempX = x + ImageDistanceUtils.getCenterDistance(directions, x, y, 3, img);
             if (tempX > maxX.x)
-                maxX = new Pair<Integer,Integer>(tempX,y);
+                maxX = new Pair<>(tempX,y);
             y++;
         }
 
@@ -880,14 +908,12 @@ public class Tracer {
     }
 
     //getting the outline of the center going right
-    static ArrayList<Pair> getStartingYs(ArrayList<Pair> directions, Pair<Integer,Integer> minX, Pair<Integer,Integer> maxX, boolean top, BufferedImage img, BufferedImage output) {
+    private ArrayList<Pair> getStartingYs(ArrayList<Pair> directions, Pair<Integer,Integer> minX, Pair<Integer,Integer> maxX, boolean top, BufferedImage img, BufferedImage output) {
         ArrayList<Pair> points = new ArrayList<Pair>();
         Pair<Integer,Integer> minYs = new Pair<Integer,Integer>(minX.x,minX.y);
         Pair<Integer,Integer> maxYs = new Pair<Integer,Integer>(-1,-1);
         int maxY = -1;
         int minY = minX.y;
-        Color blue = new Color(50,5,200);
-        int count = 0;
 
         int x = minX.x;
         int y = minX.y;
@@ -903,9 +929,9 @@ public class Tracer {
             //getting next outline value
             if (ImageUtils.getRed(img.getRGB(x, y)) > 5)
                 if (top)
-                    y += getInvertCenterDistance(directions, x, y, dir1, img);
+                    y += ImageDistanceUtils.getInvertCenterDistance(directions, x, y, dir1, img);
                 else
-                    y -= getInvertCenterDistance(directions, x, y, dir1, img);
+                    y -= ImageDistanceUtils.getInvertCenterDistance(directions, x, y, dir1, img);
             distance = -1;
             int tempX = x;
             int tempY = y;
@@ -942,11 +968,8 @@ public class Tracer {
     }
 
     //getting the outline of the center going left
-    static ArrayList<Pair> getStartingYsInverted(ArrayList<Pair> directions, Pair<Integer,Integer> minX, Pair<Integer,Integer> maxX, boolean top, BufferedImage img, BufferedImage output) {
+    private ArrayList<Pair> getStartingYsInverted(ArrayList<Pair> directions, Pair<Integer,Integer> minX, Pair<Integer,Integer> maxX, boolean top, BufferedImage img, BufferedImage output) {
         ArrayList<Pair> points = new ArrayList<Pair>();
-        Color blue = new Color(50,5,200);
-        int count = 0;
-
         int x = maxX.x;
         int y = maxX.y;
         int distance = -1;
@@ -961,9 +984,9 @@ public class Tracer {
             //getting next outline value
             if (ImageUtils.getRed(img.getRGB(x, y)) > 5)
                 if (top)
-                    y += getInvertCenterDistance(directions, x, y, dir1, img);
+                    y += ImageDistanceUtils.getInvertCenterDistance(directions, x, y, dir1, img);
                 else
-                    y -= getInvertCenterDistance(directions, x, y, dir1, img);
+                    y -= ImageDistanceUtils.getInvertCenterDistance(directions, x, y, dir1, img);
             distance = -1;
             int tempX = x;
             int tempY = y;
@@ -988,67 +1011,8 @@ public class Tracer {
         return points;
     }
 
-    //fills in the points between 2 neighboring y values
-    static ArrayList<Pair> fillInPinkOutline(int x, int y, Pair prev) {
-        ArrayList<Pair> outline = new ArrayList<Pair>();
-        while (x != prev.x) {
-            if (x > prev.x)
-                x--;
-            else
-                x++;
-            outline.add(new Pair(x, y));
-        }
-        return outline;
-    }
-
-    //getting the outline of the pink eye
-    static ArrayList<Pair> getPinkOutline(ArrayList<Pair> directions, int startX, int startY, BufferedImage img, BufferedImage output) {
-        ArrayList<Pair> outline = new ArrayList<Pair>();
-        boolean foundMin;
-        Pair prevMin = new Pair(-1,-1);
-        Pair prevMax = new Pair(-1,-1);
-        Pair startMin = new Pair(-1,-1); //recording the starting pair of the min value
-
-        for (int y = startY; y < img.getHeight() -1; y++) {
-            foundMin = false;
-
-            for (int x = 0; x < img.getWidth()-1; x++) {
-                if (foundMin) { //if we've already found the min value the left boundary, checking for right side
-                    if (!ImageUtils.isPink(img.getRGB(x, y))){
-                        outline.add(new Pair(x-1,y));
-                        if (prevMax.x != -1)
-                            outline.addAll(fillInPinkOutline(x-1, y, prevMax));
-                        else
-                            outline.addAll(fillInPinkOutline(x-1, y, startMin));
-                        prevMax = new Pair(x-1,y);
-                        break;
-                    }
-                } else { //if we haven't found the min value the left boundary, than first pink value is the min
-                    if (ImageUtils.isPink(img.getRGB(x, y))){
-                        foundMin = true;
-                        outline.add(new Pair(x,y));
-                        if (prevMin.x != -1)
-                            outline.addAll(fillInPinkOutline(x, y, prevMin));
-                        else
-                            startMin = new Pair(x,y);
-                        prevMin = new Pair(x,y);
-                        //break;
-                    }
-                }
-            }
-            if (!foundMin)
-                break;
-        }
-        outline.addAll(fillInPinkOutline(prevMin.x, prevMin.y, prevMax));
-
-        return outline;
-    }
-
-
-
-
-    //sees if there's any points that overlap from 2 arrays
-    static boolean overlappingPoints(ArrayList<Trips> a1, ArrayList<Trips> a2) {
+    // Sees if there's any points that overlap from 2 arrays
+    private boolean overlappingPoints(ArrayList<Trips> a1, ArrayList<Trips> a2) {
         for (Trips i : a1) {
             if (containsPair(a2, i))
                 return true;
@@ -1056,8 +1020,8 @@ public class Tracer {
         return false;
     }
 
-    //ignoring direction when comparing trips arrays
-    static boolean containsPair(ArrayList<Trips> branch, Trips point) {
+    // Ignoring direction when comparing trips arrays
+    private boolean containsPair(ArrayList<Trips> branch, Trips point) {
         for (Trips i : branch)
             if (i.x == point.x && i.y == point.y)
                 return true;
@@ -1065,15 +1029,15 @@ public class Tracer {
     }
 
     //removing tiny branches that aren't connected from both sides
-    static void removeTinyBranches(ArrayList<Branch> branches) {
-        boolean startFound = false;
-        boolean endFound = false;
+    private void removeTinyBranches(ArrayList<Branch> branches) {
+        boolean startFound;
+        boolean endFound;
         Trips endPoint;
         Trips startPoint;
 
         //sweeping through and removing branches of size 0
         for (int i = 0; i < branches.size(); i++) {
-            if (branches.get(i).getPoints().size() == 0) {
+            if (branches.get(i).getPoints().isEmpty()) {
                 branches.remove(i);
                 i--;
             }
@@ -1111,9 +1075,9 @@ public class Tracer {
         }
     }
 
-    //when 2 branches are split but should be just one, this will combine them
-    static void mergeSplitBranches(ArrayList<Branch> branches) {
-        int count = 0;
+    // When 2 branches are split but should be just one, this will combine them
+    private void mergeSplitBranches(ArrayList<Branch> branches) {
+        int count;
         Trips endPoint;
         Branch tempBranch = new Branch();
 
@@ -1136,10 +1100,9 @@ public class Tracer {
         }
     }
 
-    //some branches start where the other ends, so we're just going to remove the starting point of the 2nd branch
-    static void removeOverlappingPoints(ArrayList<Branch> branches) {
+    // Some branches start where the other ends, so we're just going to remove the starting point of the 2nd branch
+    private void removeOverlappingPoints(ArrayList<Branch> branches) {
         Trips endPoint;
-
         for (int i = 0; i < branches.size(); i++) {
             endPoint = branches.get(i).getEndingPoint();
             //finding all the branches with ending points starting where the i branch ends
@@ -1150,5 +1113,4 @@ public class Tracer {
             }
         }
     }
-
 }

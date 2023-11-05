@@ -26,9 +26,8 @@ public class Branch {
     }
 
     public Branch(){
-        //just a place holder
+        // Just a placeholder
     }
-
 
     public Branch(ArrayList<Trips> points){
         this.points = new ArrayList<Trips>(points);
@@ -39,8 +38,7 @@ public class Branch {
         breakPoints.add(p);
     }
 
-
-    //simple get methods---------
+    // Simple get methods---------
     public Trips getStartingPoint(){
         if (startingPoint != null)
             return startingPoint;
@@ -170,15 +168,7 @@ public class Branch {
         return breakPoints;
     }
 
-
-    public boolean containsPair(int x, int y) {
-        for (Trips i : points)
-            if (i.x == x && i.y == y)
-                return true;
-        return false;
-    }
-
-    //breaking up branch and turning in into an array of smaller ones
+    // Breaking up branch and turning in into an array of smaller ones
     public ArrayList<Branch> breakUpBranch() {
         ArrayList<Branch> ret = new ArrayList<Branch>();
         ArrayList<Trips> tempPoints = new ArrayList<Trips>();

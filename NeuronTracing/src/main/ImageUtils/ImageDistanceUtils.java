@@ -87,7 +87,7 @@ public class ImageDistanceUtils {
         return minDistance;
     }
 
-    //returning the weighted distance of a pixel
+    // Returning the weighted distance of a pixel
     public static double[] getWeightedDistance(ArrayList<Pair> directions, int x, int y, int d, BufferedImage img, int red) {
         int count = -1;
         int totalRed = 0;
@@ -104,7 +104,7 @@ public class ImageDistanceUtils {
         return new double[]{(totalRed / (count * weight)),count};
     }
 
-    //used to find the boundry of the eye
+    // Used to find the boundary of the eye
     public static int getCenterDistance(ArrayList<Pair> directions, int x, int y, int d, BufferedImage img) {
         int count = -1;
 
@@ -116,5 +116,15 @@ public class ImageDistanceUtils {
         return count;
     }
 
+    // Searching while the rgb while is > 5
+    public static int getInvertCenterDistance(ArrayList<Pair> directions, int x, int y, int d, BufferedImage img) {
+        int count = -1;
 
+        while (x < img.getWidth()-1 && x > 0 && y > 0 && y < img.getHeight()-1 && ImageUtils.getRed(img.getRGB(x, y)) > 5) {
+            x += directions.get(d).x;
+            y += directions.get(d).y;
+            count++;
+        }
+        return count;
+    }
 }

@@ -11,21 +11,9 @@ public class Trips<x, y, d> {
         this.d = d;
     }
 
-    public Trips() {
-        this.x = -1;
-        this.y = -1;
-        this.d = -1;
-    }
-
     public boolean equals(Object temp) {
         Trips trips = (Trips) temp;
         if (x==trips.x && y == trips.y && d == trips.d)
-            return true;
-        return false;
-    }
-
-    public boolean equalsPair(int x, int y) {
-        if (this.x == x && this.y == y)
             return true;
         return false;
     }
